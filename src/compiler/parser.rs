@@ -167,26 +167,9 @@ impl Parser {
                 Ok(expr)
             }
             Some(Token::LBracket) => {
-                // Matrix literal: [[1, 2], [3, 4]] or [1, 2, 3] (vector?)
-                // AST says Vec<Vec<Expr>>.
-                // Case 1: Nested matrix [[...]]
-                // Case 2: Vector [1, 2] -> represented as [[1, 2]] (1xN) or [[1], [2]] (Nx1)?
-                // Let's assume explicit structure matches Vec<Vec>.
-
-                // If the next token is LBracket, it's a list of rows.
-                // If it is an expression, it might be a single row matrix?
-
-                // Let's try to parse a list of expressions first.
-                // But wait, Vec<Vec<Expr>> suggests we strictly parse list of lists if we want 2D.
-                // Or maybe [1, 2, 3] is 1D.
-
-                // Implementation for now: Expect another LBracket for 2D.
-                // If we see `[`, we are inside the outer matrix.
-                // We expect a list of rows. Each row is `[ expr, expr ]`.
-
-                // However, let's peek.
+                // Check if it's a nested matrix `[[` or just `[`
                 if let Some(Token::LBracket) = self.peek() {
-                    // Nested.
+                    // Nested matrix: [[1, 2], [3, 4]]
                     let mut rows = Vec::new();
                     while let Some(Token::LBracket) = self.peek() {
                         self.advance(); // consume [
@@ -208,19 +191,19 @@ impl Parser {
                             break;
                         }
                     }
-                    self.expect(Token::RBracket)?;
+                    self.expect(Token::RBracket)?; // consume closing outer ]
                     Ok(Expr::MatrixLiteral(rows))
                 } else {
-                    // Maybe 1D array? Represent as 1-row matrix.
-                     let mut row = Vec::new();
-                        while !matches!(self.peek(), Some(Token::RBracket)) {
-                            row.push(self.parse_expr()?);
-                            if matches!(self.peek(), Some(Token::Comma)) {
-                                self.advance();
-                            } else {
-                                break;
-                            }
+                    // 1D Array/Vector treated as 1-row Matrix: [1, 2, 3] -> [[1, 2, 3]]
+                    let mut row = Vec::new();
+                    while !matches!(self.peek(), Some(Token::RBracket)) {
+                        row.push(self.parse_expr()?);
+                        if matches!(self.peek(), Some(Token::Comma)) {
+                            self.advance();
+                        } else {
+                            break;
                         }
+                    }
                     self.expect(Token::RBracket)?;
                     Ok(Expr::MatrixLiteral(vec![row]))
                 }
